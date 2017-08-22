@@ -4,22 +4,18 @@ namespace Comicrelief\GuerrillaMail\Behat;
 
 use Behat\Behat\Context\Context;
 use Behat\MinkExtension\Context\RawMinkContext;
-use Comicrelief\GuerrillaMail\GuerrillaConnect\CurlConnection;
-use Comicrelief\GuerrillaMail\GuerrillaMail;
+// use Comicrelief\GuerrillaMail\Services\GuerrillaMail\GuerrillaMail;
+use Comicrelief\GuerrillaMail\Services\MyTempEmail\MyTempEmail;
 
 /**
  * Class GuerrillaMailContext
  *
  * @package Comicrelief\GuerrillaMail\Behat
  */
-class GuerrillaMailContext extends RawMinkContext implements Context {
-
-  CONST FIELD_MAIL_SUBJECT = 'mail_subject';
-  CONST FIELD_MAIL_BODY = 'mail_excerpt';
-  CONST FIELD_MAIL_ID = 'mail_id';
+class MailContext extends RawMinkContext implements Context {
 
   /**
-   * @var \Comicrelief\GuerrillaMail\GuerrillaMail
+   * @var \Comicrelief\GuerrillaMail\Services\GuerrillaMail\GuerrillaMail
    */
   private $mailer;
 
@@ -43,8 +39,7 @@ class GuerrillaMailContext extends RawMinkContext implements Context {
   /**
    * @Then I generate a new test email address
    */
-  public function iGenerateANewTestEmailAddress()
-  {
+  public function iGenerateANewTestEmailAddress() {
     $this->generateNewEmailAccount();
   }
 
@@ -54,8 +49,7 @@ class GuerrillaMailContext extends RawMinkContext implements Context {
    *
    * @Then I fill in the :arg1 field with a test email address
    */
-  public function iFillInTheFieldWithATestEmailAddress($field)
-  {
+  public function iFillInTheFieldWithATestEmailAddress($field) {
     $field = str_replace('\\"', '"', $field);
     $value = $this->emailAddressModel->getEmailAddress();
     $this->getSession()->getPage()->fillField($field, $value);
@@ -67,9 +61,8 @@ class GuerrillaMailContext extends RawMinkContext implements Context {
    *
    * @Then I should receive an email with :arg1 in the body
    */
-  public function iShouldReceiveAnEmailWithInTheBody($arg1)
-  {
-    $this->checkEmailFieldForContents($this::FIELD_MAIL_BODY, $arg1);
+  public function iShouldReceiveAnEmailWithInTheBody($arg1) {
+    $this->checkEmailFieldForContents('getBody', $arg1);
   }
 
   /**
@@ -78,31 +71,31 @@ class GuerrillaMailContext extends RawMinkContext implements Context {
    *
    * @Then I should receive an email with :arg1 in the subject
    */
-  public function iShouldReceiveAnEmailWithInTheSubject($arg1)
-  {
-    $this->checkEmailFieldForContents($this::FIELD_MAIL_SUBJECT, $arg1);
+  public function iShouldReceiveAnEmailWithInTheSubject($arg1) {
+    $this->checkEmailFieldForContents('getSubject', $arg1);
   }
 
   /**
-   * @Then I should receive an email with :arg1 in the body and :arg2 in the subject
+   * @Then I should receive an email with :arg1 in the body and :arg2 in the
+   *   subject
    */
-  public function iShouldReceiveAnEmailWithInTheBodyAndInTheSubject($arg1, $arg2)
-  {
-    $emailId = $this->checkEmailFieldForContents($this::FIELD_MAIL_BODY, $arg1);
-    $this->checkEmailFieldForContents($this::FIELD_MAIL_SUBJECT, $arg2, $emailId);
+  public function iShouldReceiveAnEmailWithInTheBodyAndInTheSubject($arg1, $arg2) {
+    $emailId = $this->checkEmailFieldForContents('getBody', $arg1);
+    $this->checkEmailFieldForContents('getSubject', $arg2, $emailId);
   }
 
   /**
-   * Check created email account to see if an email exists with a value in a field.
-   * @param $field
+   * Check created email account to see if an email exists with a value in a
+   * field.
+   *
+   * @param $fieldMethod
    * @param $contents
    * @param null $emailId
    *
    * @return mixed
    * @throws \Exception
    */
-  private function checkEmailFieldForContents($field, $contents, $emailId = null)
-  {
+  private function checkEmailFieldForContents($fieldMethod, $contents, $emailId = NULL) {
     $loweredContents = strtolower($contents);
 
     for ($attempts = 0; $attempts <= 60; $attempts++) {
@@ -110,15 +103,18 @@ class GuerrillaMailContext extends RawMinkContext implements Context {
       $this->cacheEmails();
 
       if (count($this->cachedEmails) >= 1) {
+        /** @var \Comicrelief\GuerrillaMail\Model\EmailModel $email */
         foreach ($this->cachedEmails as $email) {
           // Test to see if the contents of the field matches the defined field.
-          $contentsTest = strpos(strtolower($email[$field]), $loweredContents) >= 0;
+          $contentsTest = strpos(strtolower($email->{$fieldMethod}()), $loweredContents) !== false;
 
           // If the email is set then add extra check to make sure the email contains the id.
-          if ($emailId && $contentsTest && $emailId == $email[$this::FIELD_MAIL_ID]) {
-            return $email[$this::FIELD_MAIL_ID];
-          } else if (!$emailId && $contentsTest) {
-            return $email[$this::FIELD_MAIL_ID];
+          if ($emailId && $contentsTest && $emailId === $email->getId()) {
+            return $email->getId();
+          }
+
+          if (!$emailId && $contentsTest) {
+            return $email->getId();
           }
         }
       }
@@ -132,16 +128,18 @@ class GuerrillaMailContext extends RawMinkContext implements Context {
   /**
    * Checks and Caches emails for future testing against.
    */
-  private function cacheEmails()
-  {
-    // Get the emails from guerilla mail.
+  private function cacheEmails() {
+    /**
+     * Get the emails from guerilla mail.
+     * @var \Comicrelief\GuerrillaMail\Model\EmailInboxModel $inbox
+     */
     $inbox = $this->mailer->checkEmail();
 
     // Test to see if there are any emails in the inbox.
-    if ($inbox['count'] >= 1) {
+    if ($inbox->countEmails() >= 1) {
       // Loop through the emails and cache them/
-      foreach ($inbox['list'] as $email) {
-        $this->cachedEmails[$email[$this::FIELD_MAIL_ID]] = $email;
+      foreach ($inbox->getEmails() as $email) {
+        $this->cachedEmails[$email->getId()] = $email;
       }
     }
   }
@@ -149,15 +147,21 @@ class GuerrillaMailContext extends RawMinkContext implements Context {
   /**
    * Generate a new email account.
    */
-  private function generateNewEmailAccount()
-  {
-    $connection = new CurlConnection("127.0.0.1", "GuerrillaMail_Library");
-
-    //The second parameter is the client's sid (optional)
-    $this->mailer = new GuerrillaMail($connection);
-
-    $this->emailAddressModel = $this->mailer->getEmailAddress();
+  private function generateNewEmailAccount() {
     $this->cachedEmails = [];
-  }
 
+    /*
+    $this->mailer = new GuerrillaMail();
+    $this->emailAddressModel = $this->mailer->getEmailAddress();
+
+    if ($this->emailAddressModel->getEmailAddress()) {
+      return true;
+    }
+    */
+
+    $this->mailer = new MyTempEmail();
+    $this->emailAddressModel = $this->mailer->getEmailAddress();
+
+    return true;
+  }
 }

@@ -22,24 +22,12 @@ class EmailAddressModel {
   /**
    * @var string
    */
-  private $alias;
+  private $sid;
 
   /**
    * @var string
    */
-  private $sid;
-
-  /**
-   * EmailAddressModel constructor.
-   *
-   * @param $array
-   */
-  public function __construct($array) {
-    $this->emailAddress = $array['email_addr'];
-    $this->created = $array['email_timestamp'];
-    $this->alias = $array['alias'];
-    $this->sid = $array['sid_token'];
-  }
+  private $inboxHash;
 
   /**
    * @return mixed
@@ -49,10 +37,24 @@ class EmailAddressModel {
   }
 
   /**
+   * @param string $emailAddress
+   */
+  public function setEmailAddress($emailAddress) {
+    $this->emailAddress = $emailAddress;
+  }
+
+  /**
    * @return mixed
    */
   public function getCreated() {
     return $this->created;
+  }
+
+  /**
+   * @param int $created
+   */
+  public function setCreated($created) {
+    $this->created = $created;
   }
 
   /**
@@ -69,4 +71,24 @@ class EmailAddressModel {
     return $this->sid;
   }
 
+  /**
+   * @param string $sid
+   */
+  public function setSid($sid) {
+    $this->sid = $sid;
+  }
+
+  /**
+   * @return string
+   */
+  public function getInboxHash() {
+    return $this->inboxHash;
+  }
+
+  /**
+   * @param string $inboxHash
+   */
+  public function setInboxHash($inboxHash) {
+    $this->inboxHash = $inboxHash;
+  }
 }
